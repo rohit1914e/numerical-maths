@@ -54,7 +54,6 @@ export function MethodsSection() {
   return (
     <Section
       id="methods"
-      tone="surface"
       title="Three interpolation methods"
       intro="Pick a missing record and a method. The curve is constructed step by step from the actual algorithm, with the equation and every intermediate value beside it."
     >
@@ -143,7 +142,7 @@ function Estimate({ model, method, visible }: { model: MethodsModel; method: Int
   const value = method === 'lagrange' ? model.lagrange.value : method === 'newton' ? model.newton.value : model.spline.value
   const other = method === 'spline' ? model.lagrange.value : model.spline.value
   return (
-    <div className="mt-4 flex flex-wrap items-end justify-between gap-3 rounded-lg bg-estimate-soft px-4 py-3" style={{ visibility: visible ? 'visible' : 'hidden' }} data-testid="method-estimate">
+    <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border border-estimate/40 bg-estimate-soft px-4 py-3" style={{ visibility: visible ? 'visible' : 'hidden' }} data-testid="method-estimate">
       <div>
         <p className="text-xs text-estimate-ink">Estimated latency at t = {fmtSeconds(model.time)} s</p>
         <p className="num text-[1.75rem] leading-tight text-estimate-ink">

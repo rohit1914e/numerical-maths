@@ -4,10 +4,10 @@ import { reconstruct } from '../../reconstruction/reconstruct'
 import { METHOD_SHORT_LABELS } from '../../types/interpolation'
 import { CREDITS } from '../../config/credits'
 import { fmt, fmtSeconds } from '../../utils/format'
-import { LogoMark } from '../Navbar'
+import { Brand } from '../../components/ui/Brand'
 import { Section } from '../Section'
 
-const TECH = ['React 19 and TypeScript', 'Vite and Tailwind CSS', 'GSAP and ScrollTrigger', 'SVG visualisations', 'KaTeX equations', 'PapaParse CSV parsing', 'Vitest and Playwright']
+const TECH = ['React 19 and TypeScript', 'Vite and Tailwind CSS', 'React Router', 'three.js and React Three Fiber', 'GSAP, Lenis and Framer Motion', 'SVG visualisations', 'KaTeX equations', 'PapaParse CSV parsing', 'Vitest and Playwright']
 
 export function ConclusionSection() {
   const { bundle, experiment, method, nodeCount } = useDataset()
@@ -78,12 +78,12 @@ export function ConclusionSection() {
 export function Footer() {
   const presenters = CREDITS.presenters.filter(Boolean)
   return (
-    <footer className="border-t border-line bg-surface">
-      <div className="wrap flex flex-wrap items-start justify-between gap-6 py-10" data-testid="credits">
-        <div className="flex items-center gap-3">
-          <LogoMark size={32} />
-          <div>
-            <p className="heading text-base leading-tight">Network Latency Predictor</p>
+    <footer className="relative z-10 mt-12 border-t border-line bg-paper-2">
+      <div className="wrap flex flex-wrap items-start justify-between gap-6 px-6 py-10 lg:px-10" data-testid="credits">
+        <div className="flex items-start gap-3">
+          <Brand size="sm" />
+          <div className="border-l border-line pl-3">
+            <p className="text-sm leading-tight text-text">Network Latency Predictor</p>
             <p className="text-sm text-muted">Recovering missing network measurements through numerical interpolation</p>
           </div>
         </div>

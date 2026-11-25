@@ -1,4 +1,8 @@
 import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowRight } from 'lucide-react'
+import { MODULES } from '../app/modules'
+import { PageHeader } from '../components/ui/primitives'
 import { LiveNetwork } from '../components/network/LiveNetwork'
 import { LiveTrace } from '../components/network/LiveTrace'
 import { useInView } from '../hooks/useViewport'
@@ -9,61 +13,39 @@ import { METHOD_SHORT_LABELS } from '../types/interpolation'
 import { fmt } from '../utils/format'
 import { Stat } from './Section'
 
+/** The dashboard page: headline numbers for the current dataset, the live network, and the way into each module. */
 export function Hero() {
   const panel = useRef<HTMLDivElement>(null)
   const inView = useInView(panel)
   const reduced = useReducedMotion()
   const [records, setRecords] = useState<readonly LiveRecord[]>([])
   const stats = computeLiveStats(records)
-  const { bundle, experiment } = useDataset()
+  const { bundle, experiment, method } = useDataset()
   const best = experiment?.tiedBest.map((m) => METHOD_SHORT_LABELS[m]).join(' / ')
   const bestRmse = experiment?.results.find((r) => r.method === experiment.bestByRmse)?.metrics?.rmse
 
   return (
-    <section id="overview" aria-labelledby="overview-title" className="border-b border-line bg-surface">
-      <div className="wrap grid grid-cols-1 [&>*]:min-w-0 items-center gap-10 py-12 md:py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-14">
-        <div data-reveal>
-          <p className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-xs font-semibold text-accent shadow-[var(--shadow-card)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            Numerical Methods capstone
-          </p>
-          <h1 id="overview-title" className="heading mt-5 text-[2.4rem] leading-[1.08] sm:text-[3rem] xl:text-[3.4rem]">
-            Network Latency <span className="text-accent">Predictor</span>
-          </h1>
-          <p className="mt-4 text-lg leading-snug font-medium text-ink md:text-xl">Recovering missing network measurements through numerical interpolation</p>
-          <p className="mt-5 max-w-xl text-[1.0625rem] leading-relaxed text-muted">
-            Ping monitors record round-trip times every second, but some records never arrive. This project rebuilds the missing values with Lagrange, Newton and natural cubic spline interpolation, shows every step of the arithmetic, and measures how accurate the estimates really are.
-          </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <a href="#simulation" className="btn btn-primary">
-              Explore the simulation
-            </a>
-            <a href="#methods" className="btn btn-secondary">
-              See the methods
-            </a>
-          </div>
-          <dl className="mt-9 grid max-w-xl grid-cols-3 gap-4 border-t border-line pt-5">
-            <div>
-              <dt className="text-xs text-muted">Measurements</dt>
-              <dd className="num mt-1 text-xl">{bundle.observed.measurements.length}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted">Missing records</dt>
-              <dd className="num mt-1 text-xl text-missing-ink">{bundle.missingIndices.length}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-muted">Lowest RMSE</dt>
-              <dd className="num mt-1 text-xl">{bestRmse === undefined ? '—' : `${fmt(bestRmse, 2)} ms`}</dd>
-              {best && <dd className="text-xs text-muted">{best}</dd>}
-            </div>
-          </dl>
-        </div>
+    <section id="overview" aria-labelledby="overview-title">
+      <PageHeader id="overview" eyebrow="Overview" title="Network Latency Predictor">
+        Recovering missing network measurements through numerical interpolation. Ping monitors record round-trip times every second, but some records never arrive; this project rebuilds them with Lagrange, Newton and natural cubic spline interpolation and measures how accurate the estimates really are.
+      </PageHeader>
 
-        <div ref={panel} className="panel-dark p-4 sm:p-6" data-reveal aria-label="Live network">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-white">Live network</p>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="dataset-metrics">
+        <Stat label="Measurements" value={`${bundle.observed.measurements.length}`} />
+        <Stat label="Missing records" value={`${bundle.missingIndices.length}`} alert />
+        <Stat label="Lowest RMSE" value={bestRmse === undefined ? '—' : fmt(bestRmse, 2)} unit={bestRmse === undefined ? undefined : 'ms'} />
+        <Stat label="Best method" value={best ?? '—'} />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] [&>*]:min-w-0">
+        <div ref={panel} className="panel-dark p-4 sm:p-6" aria-label="Live network">
+          <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+            <div>
+              <div className="eyebrow">Live network</div>
+              <p className="display mt-1 text-[1.35rem]">Client → router → server</p>
+            </div>
             <p className="flex items-center gap-2 text-xs text-panel-muted">
-              <span className={`inline-block h-2 w-2 rounded-full ${inView && !reduced ? 'bg-success' : 'bg-panel-line'}`} />
+              <span className={`inline-block h-2 w-2 ${inView && !reduced ? 'bg-success' : 'bg-panel-line'}`} />
               {reduced ? 'Paused for reduced motion' : 'One probe per second'}
             </p>
           </div>
@@ -79,6 +61,27 @@ export function Hero() {
           <div className="mt-3">
             <LiveTrace records={records} height={96} />
           </div>
+        </div>
+
+        <div className="card p-5">
+          <div className="eyebrow">Modules</div>
+          <p className="mt-1 text-sm text-text-2">
+            Current method: <span className="text-red">{METHOD_SHORT_LABELS[method]}</span>. Every module reads the same dataset.
+          </p>
+          <ul className="mt-4 divide-y divide-line border-y border-line">
+            {MODULES.slice(1).map(({ to, label, icon: Icon }) => (
+              <li key={to}>
+                <Link to={to} className="group flex items-center gap-3 py-2.5 text-sm text-text-2 hover:text-text">
+                  <Icon size={15} className="text-red" aria-hidden />
+                  <span className="flex-1">{label}</span>
+                  <ArrowRight size={14} className="opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link to="/simulation" className="btn btn-primary mt-5 w-full">
+            Explore the simulation
+          </Link>
         </div>
       </div>
     </section>

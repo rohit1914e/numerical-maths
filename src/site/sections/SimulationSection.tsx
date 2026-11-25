@@ -33,7 +33,7 @@ export function SimulationSection() {
       <div className="grid grid-cols-1 [&>*]:min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         <div ref={panel} className="panel-dark p-4 sm:p-6" data-reveal>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-white">Client → router → server</p>
+            <p className="text-sm font-semibold text-panel-ink">Client → router → server</p>
             <p className="text-xs text-panel-muted" role="status" data-testid="sim-status">
               {paused ? 'Paused' : inView ? `Running at ${speed}×` : 'Paused while off-screen'}
             </p>
@@ -42,7 +42,7 @@ export function SimulationSection() {
             <LiveNetwork key={resetKey} running={running} speed={speed} lossProbability={loss / 100} onRecords={(r, ok) => (setRecords(r), setLastOk(ok))} />
           </div>
           <div className="mt-4 flex items-baseline justify-between">
-            <p className="text-sm font-semibold text-white">Round-trip time, last {records.length} probes</p>
+            <p className="text-sm font-semibold text-panel-ink">Round-trip time, last {records.length} probes</p>
             <p className="num text-xs text-panel-muted" data-testid="probe-counter">
               probe #{stats.lastSequence}
             </p>

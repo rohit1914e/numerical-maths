@@ -238,7 +238,7 @@ export function LatencyPlot({
 
       {hovered && (
         <div
-          className="pointer-events-none absolute z-10 rounded-md border border-line bg-white px-2.5 py-1.5 text-xs shadow-md"
+          className="pointer-events-none absolute z-10 border border-line bg-paper-2 px-2.5 py-1.5 text-xs text-text shadow-md"
           style={{ left: Math.min(width - 150, Math.max(0, x(hovered.x) + 10)), top: 6 }}
         >
           <span className="num">t = {fmtSeconds(hovered.x)} s</span>

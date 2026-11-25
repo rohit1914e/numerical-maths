@@ -20,7 +20,12 @@ export default defineConfig({
     viewport: { width: 1920, height: 1080 },
     trace: 'retain-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } } }],
+  projects: [
+    { name: 'chromium', grepInvert: /@webgl/, use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } } },
+    // the 3D globe renders in software (SwiftShader) in headless Chrome and starves timing-sensitive tests running
+    // beside it, so WebGL tests run on their own once every other test has finished
+    { name: 'webgl', grep: /@webgl/, dependencies: ['chromium'], use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } } },
+  ],
   webServer: deployed
     ? undefined
     : {

@@ -80,7 +80,7 @@ export function DatasetSection() {
             <p className="mt-1 text-sm text-muted">The records are replayed as a raw stream, out of order and with four injected faults, and run through the pipeline.</p>
             <ol className="mt-4 grid grid-cols-1 [&>*]:min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
               {steps.map((st, i) => (
-                <li key={st.title} className="rounded-lg bg-canvas p-3">
+                <li key={st.title} className="border border-line bg-canvas p-3">
                   <p className="text-xs text-muted">
                     <span className="num mr-1 font-semibold text-accent">{i + 1}</span>
                     {st.title}

@@ -4,38 +4,38 @@
  * Keep the two in step: components must not use colour literals of their own.
  */
 export const COLORS = {
-  canvas: '#F8FAFC',
-  surface: '#FFFFFF',
-  ink: '#111827',
-  muted: '#64748B',
-  axis: '#94A3B8',
-  grid: '#E2E8F0',
-  accent: '#2563EB',
+  canvas: '#191A18',
+  surface: '#242521',
+  ink: '#F1EEE7',
+  muted: '#AAA69C',
+  axis: '#6E6A60',
+  grid: '#36352F',
+  accent: '#D97745',
 
-  actual: '#2563EB',
-  estimate: '#F59E0B',
-  estimateInk: '#B45309',
-  missing: '#EF4444',
-  missingInk: '#DC2626',
-  success: '#16A34A',
-  failure: '#DC2626',
+  actual: '#F1EEE7',
+  estimate: '#E6B76A',
+  estimateInk: '#E6B76A',
+  missing: '#E0644A',
+  missingInk: '#EF7A5F',
+  success: '#97A182',
+  failure: '#E0644A',
 
-  panel: '#0F172A',
-  panel2: '#1E293B',
-  panelLine: '#334155',
-  panelInk: '#F8FAFC',
-  panelMuted: '#94A3B8',
-  panelAccent: '#38BDF8',
-  panelAlert: '#F87171',
-  panelDevice: '#CBD5E1',
+  panel: '#121311',
+  panel2: '#1F201D',
+  panelLine: '#3A3833',
+  panelInk: '#F1EEE7',
+  panelMuted: '#AAA69C',
+  panelAccent: '#E6B76A',
+  panelAlert: '#EF7A5F',
+  panelDevice: '#CFC9BC',
 } as const
 
 /** One colour per interpolation method, used for series that compare methods. */
 export const METHOD_COLORS = {
-  lagrange: '#2563EB',
-  newton: '#38BDF8',
-  spline: '#0F172A',
+  lagrange: '#D97745',
+  newton: '#E6B76A',
+  spline: '#97A182',
 } as const
 
-/** Distinct but quiet line colours for the Lagrange basis polynomials. */
-export const BASIS_COLORS = ['#2563EB', '#0EA5E9', '#6366F1', '#0F172A', '#64748B', '#38BDF8', '#1D4ED8', '#334155', '#7DD3FC', '#94A3B8'] as const
+/** Distinct but quiet line colours for the Lagrange basis polynomials (warm family, readable on charcoal). */
+export const BASIS_COLORS = ['#D97745', '#E6B76A', '#97A182', '#F1EEE7', '#B66A45', '#C9A27A', '#7F8C6E', '#AAA69C', '#E89A6B', '#D8CBB0'] as const

@@ -125,7 +125,7 @@ export function ReconstructionSection() {
           <p className="text-sm font-semibold">Estimates</p>
           <div className="mt-2 max-h-[300px] overflow-auto">
             <table className="w-full text-sm" data-testid="estimates-table">
-              <thead className="sticky top-0 bg-white text-left text-xs text-muted">
+              <thead className="sticky top-0 bg-surface text-left text-xs text-muted">
                 <tr className="border-b border-line">
                   <th className="py-1.5 font-semibold">Time</th>
                   <th className="py-1.5 text-right font-semibold">Estimate</th>

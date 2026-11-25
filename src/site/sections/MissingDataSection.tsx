@@ -73,7 +73,6 @@ export function MissingDataSection() {
   return (
     <Section
       id="missing-data"
-      tone="surface"
       title="When measurements disappear"
       intro="A missing record is a time slot with no value. The timestamp is there; the round-trip time is not. Toggle between the complete series and what the monitor actually stored."
       aside={

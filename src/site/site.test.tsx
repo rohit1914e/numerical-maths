@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import App from '../app/App'
+import { MODULES } from '../app/modules'
 import { createSyntheticBundle } from '../data/datasets'
 import { reconstruct } from '../reconstruction/reconstruct'
 import { chooseFocusGap } from '../reconstruction/focus'
 import { planExperiment, runAccuracyExperiment } from '../evaluation/comparison/compareMethods'
 import { fmt, fmtSeconds } from '../utils/format'
-import { NAV_LINKS } from './navLinks'
 
 // Reduced motion: constructions render their finished state and the simulations stay still,
 // so assertions see final values without waiting for animations.
@@ -21,36 +22,49 @@ afterEach(() => {
 
 const bundle = createSyntheticBundle()
 const section = (id: string) => document.getElementById(id) as HTMLElement
+const renderAt = (path: string) => render(<MemoryRouter initialEntries={[path]}><App /></MemoryRouter>)
 
-describe('website structure', () => {
-  it('has a navigation bar, a hero and every section, without a presentation toolbar', () => {
-    render(<App />)
-    const nav = screen.getByRole('navigation', { name: 'Main' })
-    for (const link of NAV_LINKS) {
-      expect(within(nav).getByRole('link', { name: link.label })).toHaveAttribute('href', `#${link.id}`)
-      expect(section(link.id)).toBeInTheDocument()
-    }
+describe('landing story', () => {
+  it('opens with the title, the 3D stage and seven chapters built from real algorithm output', { timeout: 30_000 }, async () => {
+    renderAt('/')
     expect(screen.getByRole('heading', { level: 1, name: 'Network Latency Predictor' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Explore the simulation' })).toHaveAttribute('href', '#simulation')
-    for (const id of ['missing-data', 'conclusion']) expect(section(id)).toBeInTheDocument()
+    // jsdom has no WebGL: the globe degrades to its text fallback instead of failing
+    // the stage is a lazy chunk that imports three.js: compiling it under a parallel test run takes a few seconds
+    expect(await screen.findByTestId('globe-stage', {}, { timeout: 20_000 })).toBeInTheDocument()
+    expect(await screen.findByTestId('scene-fallback')).toBeInTheDocument()
+    for (let n = 1; n <= 7; n++) expect(document.getElementById(`chapter-${n}`)).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /Chapter \d: / })).toHaveLength(7)
+    expect(screen.getByTestId('enter-platform')).toHaveAttribute('href', '/dashboard')
+    const exp = runAccuracyExperiment(planExperiment(bundle, 20, 11).reference, planExperiment(bundle, 20, 11).hiddenPositions, 4)
+    const chapter6 = document.getElementById('chapter-6')!
+    for (const r of exp.results) expect(chapter6).toHaveTextContent(fmt(r.metrics!.rmse, 3))
     expect(screen.queryByRole('navigation', { name: 'Presentation controls' })).toBeNull()
-    expect(screen.queryByTestId('stage')).toBeNull()
+  })
+})
+
+describe('dashboard shell', () => {
+  it('lists every module in the sidebar and opens each one at its own URL', async () => {
+    const user = userEvent.setup()
+    renderAt('/dashboard')
+    const nav = screen.getByRole('navigation', { name: 'Main' })
+    for (const m of MODULES) expect(within(nav).getByRole('link', { name: m.label })).toHaveAttribute('href', m.to)
+    expect(screen.getByRole('heading', { level: 1, name: 'Network Latency Predictor' })).toBeInTheDocument()
+    expect(within(nav).getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page')
+    await user.click(within(nav).getByRole('link', { name: 'Interpolation methods' }))
+    expect(await screen.findByTestId('method-estimate')).toBeInTheDocument()
+    expect(within(nav).getByRole('link', { name: 'Interpolation methods' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByTestId('status-bar')).toHaveTextContent(`${bundle.missingIndices.length} missing`)
   })
 
-  it('opens and closes the mobile menu', async () => {
-    const user = userEvent.setup()
-    render(<App />)
-    await user.click(screen.getByRole('button', { name: /Menu/ }))
-    const menu = document.getElementById('mobile-nav')!
-    expect(within(menu).getAllByRole('link')).toHaveLength(NAV_LINKS.length)
-    await user.click(within(menu).getByRole('link', { name: 'Methods' }))
-    expect(document.getElementById('mobile-nav')).toBeNull()
+  it('sends unknown addresses to the dashboard', () => {
+    renderAt('/nowhere')
+    expect(section('overview')).toBeInTheDocument()
   })
 })
 
 describe('hero and simulation', () => {
   it('shows live metrics computed from the simulated probes', () => {
-    render(<App />)
+    renderAt('/dashboard')
     const metrics = screen.getByTestId('hero-metrics')
     expect(within(metrics).getByText('Latest RTT')).toBeInTheDocument()
     expect(within(metrics).getByText('Timeouts').nextElementSibling!.textContent).toMatch(/^\d+of 60$/)
@@ -58,7 +72,7 @@ describe('hero and simulation', () => {
 
   it('pauses, resumes, resets and changes speed and loss rate', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderAt('/simulation')
     const sim = section('simulation')
     // reduced motion starts the simulation paused
     expect(within(sim).getByTestId('sim-status')).toHaveTextContent('Paused')
@@ -79,7 +93,7 @@ describe('hero and simulation', () => {
 describe('missing data and dataset', () => {
   it('toggles between the complete and incomplete series', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderAt('/missing-data')
     const s = section('missing-data')
     await user.click(within(s).getByRole('button', { name: 'Complete' }))
     for (const i of bundle.missingIndices) expect(within(s).getByTestId(`highlight-${i}`)).toBeInTheDocument()
@@ -89,7 +103,7 @@ describe('missing data and dataset', () => {
   })
 
   it('lists every record with its status and the preprocessing results', () => {
-    render(<App />)
+    renderAt('/dataset')
     const table = screen.getByTestId('dataset-table')
     expect(within(table).getAllByRole('row')).toHaveLength(bundle.observed.measurements.length + 1)
     expect(within(table).getAllByText('Missing')).toHaveLength(bundle.missingIndices.length)
@@ -99,23 +113,25 @@ describe('missing data and dataset', () => {
     }
   })
 
-  it('imports a CSV, reports invalid rows and updates every section', async () => {
+  it('imports a CSV, reports invalid rows and every other page uses it', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderAt('/dataset')
     await user.click(screen.getByRole('tab', { name: 'Import CSV' }))
     await user.upload(screen.getByTestId('csv-input'), new File(['timestamp,ping_ms\n0,10\n1,-3\n'], 'bad.csv', { type: 'text/csv' }))
     expect(await screen.findByTestId('csv-errors')).toHaveTextContent('Line 3: Latency -3 ms is negative')
     await user.upload(screen.getByTestId('csv-input'), new File(['timestamp,ping_ms\n0,20\n1,22\n2,\n3,26\n4,27\n'], 'good.csv', { type: 'text/csv' }))
     expect(await screen.findByText(/Imported: good.csv/)).toBeInTheDocument()
     expect(within(screen.getByTestId('dataset-table')).getAllByRole('row')).toHaveLength(6)
-    expect(screen.getByTestId('reconstruction-status')).toHaveTextContent('1 of 1 gaps estimated')
+    expect(screen.getByTestId('status-bar')).toHaveTextContent('imported')
+    await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Reconstruction' }))
+    expect(await screen.findByTestId('reconstruction-status')).toHaveTextContent('1 of 1 gaps estimated')
   })
 })
 
 describe('methods, reconstruction and evaluation use the real algorithms', () => {
   it('each method panel shows the estimate computed by the algorithm', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderAt('/methods')
     const s = section('methods')
     const focus = chooseFocusGap(bundle)!
     const value = (method: 'lagrange' | 'newton' | 'spline', i = focus) => {
@@ -138,7 +154,7 @@ describe('methods, reconstruction and evaluation use the real algorithms', () =>
 
   it('reconstructs every gap and compares original with reconstructed', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderAt('/reconstruction')
     const s = section('reconstruction')
     const outcomes = reconstruct(bundle.observed, bundle.missingIndices, { method: 'spline', nodeCount: 4 })
     expect(within(s).getByTestId('reconstruction-status')).toHaveTextContent(`${outcomes.length} of ${outcomes.length} gaps estimated`)
@@ -155,8 +171,9 @@ describe('methods, reconstruction and evaluation use the real algorithms', () =>
     expect(within(s).getByTestId('estimates-table')).toHaveTextContent(`${fmt((lag[0] as { value: number }).value, 2)} ms`)
   })
 
-  it('evaluation metrics equal the evaluation module and the best method is highlighted', () => {
-    render(<App />)
+  it('evaluation metrics equal the evaluation module and the best method is highlighted', async () => {
+    const user = userEvent.setup()
+    renderAt('/evaluation')
     const plan = planExperiment(bundle, 20, 11)
     const exp = runAccuracyExperiment(plan.reference, plan.hiddenPositions, 4)
     for (const r of exp.results) {
@@ -169,7 +186,8 @@ describe('methods, reconstruction and evaluation use the real algorithms', () =>
     }
     expect(screen.getAllByTestId('error-pair')).toHaveLength(plan.hiddenPositions.length)
     expect(screen.getByTestId('interpretation')).toHaveTextContent('does not validate any estimate')
-    expect(screen.getByTestId('key-findings')).toHaveTextContent(fmt(exp.results.find((r) => r.method === exp.bestByRmse)!.metrics!.rmse, 3))
+    await user.click(within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Report' }))
+    expect(await screen.findByTestId('key-findings')).toHaveTextContent(fmt(exp.results.find((r) => r.method === exp.bestByRmse)!.metrics!.rmse, 3))
     expect(screen.getByTestId('credits')).toHaveTextContent('Numerical Methods')
   })
 })

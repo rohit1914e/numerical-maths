@@ -6,6 +6,8 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {
+    // three.js (~1 MB) is lazy-loaded only by the landing page's globe
+    chunkSizeWarningLimit: 1200,
     rolldownOptions: {
       output: {
         // Keep the heavy, chapter-specific libraries out of the first paint.

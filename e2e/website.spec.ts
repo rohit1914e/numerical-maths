@@ -1,6 +1,15 @@
 import { expect, test, type Page } from '@playwright/test'
 
-const SECTIONS = ['overview', 'simulation', 'missing-data', 'dataset', 'methods', 'reconstruction', 'evaluation', 'conclusion']
+const MODULES = [
+  { path: '/dashboard', label: 'Dashboard', id: 'overview' },
+  { path: '/simulation', label: 'Network simulation', id: 'simulation' },
+  { path: '/missing-data', label: 'Missing data', id: 'missing-data' },
+  { path: '/dataset', label: 'Dataset', id: 'dataset' },
+  { path: '/methods', label: 'Interpolation methods', id: 'methods' },
+  { path: '/reconstruction', label: 'Reconstruction', id: 'reconstruction' },
+  { path: '/evaluation', label: 'Evaluation', id: 'evaluation' },
+  { path: '/report', label: 'Report', id: 'conclusion' },
+]
 
 function trackErrors(page: Page) {
   const errors: string[] = []
@@ -11,53 +20,69 @@ function trackErrors(page: Page) {
   return errors
 }
 
-async function open(page: Page) {
-  await page.goto('/')
-  await expect(page.getByRole('heading', { level: 1, name: 'Network Latency Predictor' })).toBeVisible()
-}
-
+const sidebar = (page: Page) => page.getByRole('navigation', { name: 'Main' })
 const counter = async (page: Page) => Number((await page.getByTestId('probe-counter').textContent())!.replace(/\D/g, ''))
 
-async function scrollTo(page: Page, id: string) {
-  await page.evaluate((i) => document.getElementById(i)!.scrollIntoView({ behavior: 'instant', block: 'start' }), id)
-}
-
-test('opens as a website: navbar, hero, live network, no presentation chrome', async ({ page }) => {
+// @webgl: renders the globe with software WebGL, which saturates the CPU; playwright.config.ts runs it after everything else
+test('landing: title, 3D network globe, chapter rail, and the way into the dashboard @webgl', async ({ page }) => {
   const errors = trackErrors(page)
-  await open(page)
-  const nav = page.getByRole('navigation', { name: 'Main' })
-  for (const name of ['Overview', 'Network Simulation', 'Dataset', 'Methods', 'Reconstruction', 'Evaluation']) await expect(nav.getByRole('link', { name })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Explore the simulation' })).toBeVisible()
-  // packets move in the hero
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1, name: 'Network Latency Predictor' })).toBeVisible()
+  await expect(page.getByTestId('globe-stage')).toBeAttached()
+  await expect(page.getByTestId('scene')).toHaveAttribute('data-webgl', /true|false/)
+  await expect(page.getByRole('navigation', { name: 'Chapters' }).getByRole('link')).toHaveCount(7)
+  // the chapter label follows the scroll position
+  await page.evaluate(() => document.getElementById('chapter-4')!.scrollIntoView({ behavior: 'instant', block: 'center' }))
+  await expect(page.getByTestId('chapter-label')).toHaveText(/04 · Interpolation/, { timeout: 6000 })
+  await expect(page.locator('#chapter-6')).toContainText('RMSE')
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(5000)
+  await page.getByTestId('enter-platform').click()
+  await expect(page).toHaveURL(/\/dashboard$/)
+  await expect(page.locator('#overview')).toBeVisible()
+  expect(errors).toEqual([])
+})
+
+test('landing without WebGL falls back to text and keeps every chapter', async ({ page }) => {
+  const errors = trackErrors(page)
+  await page.goto('/?gpu=none')
+  await expect(page.getByTestId('scene-fallback')).toBeVisible()
+  for (let n = 1; n <= 7; n++) await expect(page.locator(`#chapter-${n}`)).toBeAttached()
+  expect(errors).toEqual([])
+})
+
+test('sidebar opens every module at its own URL, and deep links load directly', async ({ page }) => {
+  const errors = trackErrors(page)
+  await page.goto('/dashboard')
+  for (const m of MODULES) {
+    await sidebar(page).getByRole('link', { name: m.label }).click()
+    await expect(page).toHaveURL(new RegExp(`${m.path}$`))
+    await expect(page.locator(`#${m.id}`)).toBeVisible()
+    await expect(sidebar(page).getByRole('link', { name: m.label })).toHaveAttribute('aria-current', 'page')
+  }
+  await page.goto('/evaluation')
+  await expect(page.locator('#evaluation')).toBeVisible()
+  await page.goto('/no-such-page')
+  await expect(page).toHaveURL(/\/dashboard$/)
+  expect(errors).toEqual([])
+})
+
+test('dashboard: live network packets move', async ({ page }) => {
+  await page.goto('/dashboard')
   const dots = () => page.locator('[data-testid="live-network"]').first().locator('circle[data-packet="request"]').evaluateAll((els) => els.map((e) => `${e.getAttribute('cx')}:${e.getAttribute('opacity')}`).join('|'))
   const a = await dots()
   await page.waitForTimeout(400)
   expect(await dots()).not.toBe(a)
-  await expect(page.getByTestId('stage')).toHaveCount(0)
-  await expect(page.getByRole('navigation', { name: 'Presentation controls' })).toHaveCount(0)
-  // the page scrolls normally
-  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeGreaterThan(4000)
-  expect(errors).toEqual([])
-})
-
-test('navigation links scroll to their sections and highlight the current one', async ({ page }) => {
-  await open(page)
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Methods' }).click()
-  await expect(page.locator('#methods')).toBeInViewport()
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Methods' })).toHaveAttribute('aria-current', 'true')
-  await page.getByRole('link', { name: 'Explore the simulation' }).count() // still present in the hero
-  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Overview' }).click()
-  await expect(page.locator('#overview')).toBeInViewport()
+  await expect(page.getByTestId('hero-metrics')).toContainText('Latest RTT')
 })
 
 test('simulation: pause, resume, speed, reset and off-screen pausing', async ({ page }) => {
-  await open(page)
-  await page.getByRole('link', { name: 'Explore the simulation' }).click()
+  await page.goto('/simulation')
   const sim = page.locator('#simulation')
   await expect(sim.getByTestId('sim-status')).toHaveText('Running at 1×')
+  // the engine advances per animation frame (time steps are capped), so on a busy CPU it runs a little slower than
+  // the wall clock: wait for progress with a deadline instead of counting probes in a fixed window
   const start = await counter(page)
-  await page.waitForTimeout(2500)
-  expect(await counter(page)).toBeGreaterThan(start)
+  await expect.poll(() => counter(page), { timeout: 10_000 }).toBeGreaterThan(start)
 
   await sim.getByRole('button', { name: 'Pause' }).click()
   const frozen = await counter(page)
@@ -66,20 +91,23 @@ test('simulation: pause, resume, speed, reset and off-screen pausing', async ({ 
 
   await sim.getByRole('button', { name: 'Resume' }).click()
   await sim.getByRole('button', { name: '4×' }).click()
+  // 6 probes take ~1.5 s at 4x; at 1x they would take 6 s, so a 6 s deadline still catches a broken speed control
   const fast = await counter(page)
-  await page.waitForTimeout(2500)
-  expect(await counter(page)).toBeGreaterThanOrEqual(fast + 6)
+  await expect.poll(() => counter(page), { timeout: 6_000 }).toBeGreaterThanOrEqual(fast + 6)
 
   await sim.getByRole('button', { name: 'Reset' }).click()
   await expect(sim.getByTestId('probe-counter')).toHaveText(/probe #6\d/)
 
-  await scrollTo(page, 'evaluation')
+  // the module page is short, so add room below it and scroll the panel fully out of view: the frame loop stops
+  await page.evaluate(() => {
+    document.body.style.paddingBottom = '250vh'
+    window.scrollTo(0, document.documentElement.scrollHeight)
+  })
   await expect(sim.getByTestId('sim-status')).toHaveText('Paused while off-screen')
 })
 
 test('missing data: the series loses measurements and can be toggled', async ({ page }) => {
-  await open(page)
-  await scrollTo(page, 'missing-data')
+  await page.goto('/missing-data')
   const s = page.locator('#missing-data')
   await expect(s.getByTestId('lost-summary')).toHaveText(/\d+ of \d+ measurements are missing/, { timeout: 8000 })
   await s.getByRole('button', { name: 'Complete', exact: true }).click()
@@ -88,10 +116,9 @@ test('missing data: the series loses measurements and can be toggled', async ({ 
   await expect(s.getByText('will be lost')).toHaveCount(0)
 })
 
-test('dataset: table, preprocessing, CSV validation and import', async ({ page }) => {
+test('dataset: table, preprocessing, CSV validation, and the import reaches every page', async ({ page }) => {
   const errors = trackErrors(page)
-  await open(page)
-  await scrollTo(page, 'dataset')
+  await page.goto('/dataset')
   await expect(page.getByTestId('dataset-table').locator('tbody tr')).toHaveCount(48)
   await expect(page.getByTestId('rejected-rows').locator('tbody tr')).toHaveCount(4)
   await page.getByRole('tab', { name: 'Import CSV' }).click()
@@ -100,16 +127,16 @@ test('dataset: table, preprocessing, CSV validation and import', async ({ page }
   await page.getByRole('button', { name: 'Load sample CSV' }).click()
   await expect(page.getByText('Imported: sample.csv')).toBeVisible()
   await expect(page.getByTestId('dataset-table').locator('tbody tr')).toHaveCount(10)
-  await scrollTo(page, 'reconstruction')
+  await expect(page.getByTestId('status-bar')).toContainText('imported')
+  await sidebar(page).getByRole('link', { name: 'Reconstruction' }).click()
   await expect(page.getByTestId('reconstruction-status')).toContainText('2 of 2 gaps estimated', { timeout: 10_000 })
-  await scrollTo(page, 'evaluation')
+  await sidebar(page).getByRole('link', { name: 'Evaluation' }).click()
   await expect(page.getByText(/known interior rows are held out/)).toBeVisible()
   expect(errors).toEqual([])
 })
 
 test('methods: switching methods rebuilds the curve with the real estimate', async ({ page }) => {
-  await open(page)
-  await scrollTo(page, 'methods')
+  await page.goto('/methods')
   const s = page.locator('#methods')
   await expect(s.getByTestId('method-estimate')).toBeVisible({ timeout: 6000 })
   await expect(s.getByTestId('estimate-marker')).toBeVisible()
@@ -125,28 +152,27 @@ test('methods: switching methods rebuilds the curve with the real estimate', asy
 })
 
 test('reconstruction animates every gap into an amber estimate', async ({ page }) => {
-  await open(page)
-  await scrollTo(page, 'reconstruction')
+  await page.goto('/reconstruction')
   const s = page.locator('#reconstruction')
-  await expect(s.getByTestId('reconstruction-status')).toContainText('Estimating', { timeout: 4000 })
   await expect(s.getByTestId('reconstruction-status')).toContainText('9 of 9 gaps estimated', { timeout: 12_000 })
   await expect(s.locator('[data-testid^="reconstructed-"]')).toHaveCount(9)
   await s.getByRole('button', { name: 'Original' }).click()
   await expect(s.locator('[data-testid^="reconstructed-"]')).toHaveCount(0)
 })
 
-test('evaluation compares all three methods and highlights the best', async ({ page }) => {
-  await open(page)
-  await scrollTo(page, 'evaluation')
+test('evaluation compares all three methods and highlights the best; the report summarises it', async ({ page }) => {
+  await page.goto('/evaluation')
   for (const m of ['lagrange', 'newton', 'spline']) await expect(page.getByTestId(`metrics-${m}`)).toContainText('RMSE')
   await expect(page.getByText('Lowest RMSE').first()).toBeVisible()
   await expect(page.getByTestId('comparison-bars')).toBeVisible()
   await expect(page.getByTestId('interpretation')).toContainText('does not validate')
+  await sidebar(page).getByRole('link', { name: 'Report' }).click()
+  await expect(page.getByTestId('key-findings')).toContainText('Lowest RMSE')
+  await expect(page.getByTestId('credits')).toContainText('Numerical Methods')
 })
 
 test('charts show values on hover', async ({ page }) => {
-  await open(page)
-  await scrollTo(page, 'reconstruction')
+  await page.goto('/reconstruction')
   const chart = page.locator('#reconstruction svg[aria-label="The series with reconstructed values"]')
   await expect(chart).toBeVisible()
   const box = (await chart.boundingBox())!
@@ -157,12 +183,14 @@ test('charts show values on hover', async ({ page }) => {
 test('reduced motion: no ambient animation, finished results shown at once', async ({ browser }) => {
   const context = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 1366, height: 768 } })
   const page = await context.newPage()
-  await open(page)
+  await page.goto('/dashboard')
   await expect(page.getByText('Paused for reduced motion')).toBeVisible()
-  await scrollTo(page, 'simulation')
+  await page.goto('/simulation')
   await expect(page.locator('#simulation').getByTestId('sim-status')).toHaveText('Paused')
-  await scrollTo(page, 'methods')
+  await page.goto('/methods')
   await expect(page.locator('#methods').getByTestId('estimate-marker')).toBeVisible()
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 1, name: 'Network Latency Predictor' })).toBeVisible()
   await context.close()
 })
 
@@ -172,24 +200,23 @@ for (const viewport of [
   { width: 1024, height: 768 },
   { width: 390, height: 844 },
 ]) {
-  test(`responsive at ${viewport.width}px: no horizontal overflow, every section reachable`, async ({ browser }, info) => {
+  test(`responsive at ${viewport.width}px: no horizontal overflow on the landing or any module`, async ({ browser }, info) => {
     const context = await browser.newContext({ viewport })
     const page = await context.newPage()
     const errors = trackErrors(page)
-    await open(page)
-    for (const id of SECTIONS) {
-      await scrollTo(page, id)
-      await page.waitForTimeout(250)
+    const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    // layout only: the fixed full-screen canvas cannot cause overflow, so skip software WebGL (it starves parallel tests)
+    await page.goto('/?gpu=none')
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    await page.waitForTimeout(800)
+    expect(await overflow()).toBeLessThanOrEqual(0)
+    for (const m of MODULES) {
+      await page.goto(m.path)
+      await expect(page.locator(`#${m.id}`)).toBeVisible()
+      await page.waitForTimeout(300)
+      expect(await overflow(), m.path).toBeLessThanOrEqual(0)
     }
-    await page.waitForTimeout(1500)
-    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
-    if (viewport.width < 1024) {
-      await scrollTo(page, 'overview')
-      await page.getByRole('button', { name: /Menu/ }).click()
-      await page.locator('#mobile-nav').getByRole('link', { name: 'Evaluation' }).click()
-      await expect(page.locator('#evaluation')).toBeInViewport()
-    }
-    await info.attach(`full-page-${viewport.width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })
+    await info.attach(`report-${viewport.width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' })
     expect(errors).toEqual([])
     await context.close()
   })

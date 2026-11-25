@@ -23,7 +23,6 @@ export function EvaluationSection() {
   return (
     <Section
       id="evaluation"
-      tone="surface"
       title="How accurate are the estimates?"
       intro="A truly missing value cannot be checked, so we hide values we do know, reconstruct them from the rest, and compare. Every number below is recomputed from the algorithms whenever the data or settings change."
       aside={
